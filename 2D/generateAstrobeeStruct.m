@@ -12,10 +12,6 @@ function astrobee = generateAstrobeeStruct()
     I = (l^2 + w^2)*m/12;
 
     % Thruster locations (m)
-    % In the x-axis points normal to Face 1, and anti-normal to Face 2
-    % The vectors are given in order: Face 1, counterclockwise around the
-    % positive x-axis, and face 2, counterclockwise about the positive
-    % x-axis
     r1 = [l/2; w/2];
     r2 = [-l/2; w/2];
     r3 = [-l/2; -w/2];

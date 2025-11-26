@@ -19,13 +19,16 @@ function [time, posX, posY, velX, velY, theta, omega] = solvePath(astrobee, thru
     thrusterLocations = astrobee.thrusterLocations;
     thrusterDirections = astrobee.thrusterDirections;
     [~, numThrusters] = size(thrusterLocations);
-    for i = 1:length(numThrusters)
+    for i = 1:numThrusters
         % for 3D case, this should be a cross product
         r = thrusterLocations(:,i);
         F = thrusterDirections(:,i);
         M = r(1)*F(2) - r(2)*F(1);
         body_moments = [body_moments M];
     end
+
+
+    disp(body_moments)
 
 
 
@@ -39,7 +42,7 @@ function [time, posX, posY, velX, velY, theta, omega] = solvePath(astrobee, thru
         theta = angle(:,end);
         omega = angular_vel(:,end);
         alpha = angular_acc(:,end);
-        t = time(end);
+        time_now = time(end);
 
         F_body = [0; 0];
         M = 0;
@@ -60,12 +63,12 @@ function [time, posX, posY, velX, velY, theta, omega] = solvePath(astrobee, thru
         theta_next = theta + omega*dt; % omega is the same in the inertial and the body frame
         omega_next = omega + alpha*dt;
         alpha_next = M/I - omega^2;
-        t_next = t + dt;
+        t_next = time_now + dt;
 
         % Storage
-        pos(end+1) = s_next;
-        vel(end+1) = v_next;
-        acc(end+1) = a_next;
+        pos(:,end+1) = s_next;
+        vel(:,end+1) = v_next;
+        acc(:,end+1) = a_next;
         angle(end+1) = theta_next;
         angular_vel(end+1) = omega_next;
         angular_acc(end+1) = alpha_next;
