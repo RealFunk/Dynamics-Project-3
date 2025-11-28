@@ -1,88 +1,64 @@
-function [time, posX, posY, velX, velY, theta, omega] = solvePath(astrobee, thrustProfiles, dt)
-% TODO: Add documentation here
-
-    % Init everything
-    numTimesteps = length(thrustProfiles(1,:));
-
-    m = astrobee.mass;
-    I = astrobee.inertiaTensor;
-
-    pos = [0; 0];           % Inertial frame, in m
-    vel = [0; 0];           % Inertial frame, in m/s
-    acc = [0; 0];           % Inertial frame, in m/s^2
-    angle = 0;              % Inertial frame, in radians
-    angular_vel = 0;        % Body frame, in radians/s
-    angular_acc = 0;        % Body frame, in radians/s^2
-    time = 0;
-
-    body_moments = [];         % Body frame, in m (multiply by N to get moment, N*m)
-    thrusterLocations = astrobee.thrusterLocations;
-    thrusterDirections = astrobee.thrusterDirections;
-    [~, numThrusters] = size(thrusterLocations);
-    for i = 1:numThrusters
-        % for 3D case, this should be a cross product
-        r = thrusterLocations(:,i);
-        F = thrusterDirections(:,i);
-        M = r(1)*F(2) - r(2)*F(1);
-        body_moments = [body_moments M];
+function [time, posX, posY, velX, velY, theta, omega] = solvePath(astrobee, thrustProfiles)
+    
+    m = astrobee.m;
+    I_zz = astrobee.I_zz;
+    L = astrobee.L;
+    
+    if isfield(astrobee, 'x0')
+        y0 = [astrobee.x0; astrobee.y0; astrobee.vx0; astrobee.vy0; astrobee.theta0; astrobee.omega0];
+    else
+        y0 = [0; 0; 0; 0; 0; 0];
     end
+    
+    timeSpan = thrustProfiles.timeSpan;
+    T_TL = thrustProfiles.T_TL;
+    T_BL = thrustProfiles.T_BL;
+    T_TR = thrustProfiles.T_TR;
+    T_BR = thrustProfiles.T_BR;
+    
+    tStart = timeSpan(1);
+    tEnd = timeSpan(end);
+    
+    odefun = @(t, y) robotDynamics(t, y, m, I_zz, L, timeSpan, T_TL, T_BL, T_TR, T_BR);
+    
+    options = odeset('RelTol', 1e-6, 'AbsTol', 1e-8);
+    [time, state] = ode45(odefun, [tStart tEnd], y0, options);
+    
+    posX = state(:, 1);
+    posY = state(:, 2);
+    velX = state(:, 3);
+    velY = state(:, 4);
+    theta = state(:, 5);
+    omega = state(:, 6);
+    
+end
 
+function dydt = robotDynamics(t, y, m, I_zz, L, timeSpan, T_TL, T_BL, T_TR, T_BR)
+    vx   = y(3);
+    vy   = y(4);
+    theta= y(5);
+    omega= y(6);
 
-    disp(body_moments)
+    TL = interp1(timeSpan, T_TL, t, 'linear', 0);
+    BL = interp1(timeSpan, T_BL, t, 'linear', 0);
+    TR = interp1(timeSpan, T_TR, t, 'linear', 0);
+    BR = interp1(timeSpan, T_BR, t, 'linear', 0);
 
+    Fx_body = (TL + BL) - (TR + BR);
+    Fy_body = 0;
 
-
-    % Simulation
-    for t = 1:numTimesteps
-
-        % Prep
-        s = pos(:,end);
-        v = vel(:,end);
-        a = acc(:,end);
-        theta = angle(:,end);
-        omega = angular_vel(:,end);
-        alpha = angular_acc(:,end);
-        time_now = time(end);
-
-        F_body = [0; 0];
-        M = 0;
-        R = [cos(theta), -sin(theta); sin(theta), cos(theta)];
-
-        for i = 1:numThrusters
-            T = thrustProfiles(i,t);
-            F_body = F_body + T*thrusterDirections(:,i);
-            M = M + T*body_moments(i);
-        end
-        F_inertial = R*F_body;
-
-
-        % Iteration
-        s_next = s + v*dt;
-        v_next = v + a*dt;
-        a_next = F_inertial/m;
-        theta_next = theta + omega*dt; % omega is the same in the inertial and the body frame
-        omega_next = omega + alpha*dt;
-        alpha_next = M/I - omega^2;
-        t_next = time_now + dt;
-
-        % Storage
-        pos(:,end+1) = s_next;
-        vel(:,end+1) = v_next;
-        acc(:,end+1) = a_next;
-        angle(end+1) = theta_next;
-        angular_vel(end+1) = omega_next;
-        angular_acc(end+1) = alpha_next;
-        time(end+1) = t_next;
-
-    end
-
-    % Output
-    posX = pos(1,:);
-    posY = pos(2,:);
-    velX = vel(1,:);
-    velY = vel(2,:);
-    theta = angle;
-    omega = angular_vel;
-
-
+    Fx_world = Fx_body * cos(theta) - Fy_body * sin(theta);
+    Fy_world = Fx_body * sin(theta) + Fy_body * cos(theta); 
+    ax = Fx_world / m;
+    ay = Fy_world / m;
+    r = L/2; 
+    Tz = r * ( -TL + BL + TR - BR );
+    alpha = Tz / I_zz;
+    dydt = zeros(6,1);
+    dydt(1) = vx;   
+    dydt(2) = vy;        
+    dydt(3) = ax;       
+    dydt(4) = ay;         
+    dydt(5) = omega;      
+    dydt(6) = alpha; 
 end
