@@ -13,7 +13,8 @@ function thrustProfileStruct = solveThrustProfiles(targetTime, targetPosX, targe
     L = astrobee.L;
     thrustProfiles = [];
 
-    % Hard-coded path
+    % Hard-coded path that avoids obstacle
+    %{
     thrustProfiles = [thrustProfiles moveRight(10, 3, m, dt)];
     thrustProfiles = [thrustProfiles rotateCCW(90, 1, I, L, dt)];
     thrustProfiles = [thrustProfiles moveRight(15, 3, m, dt)];
@@ -23,6 +24,25 @@ function thrustProfileStruct = solveThrustProfiles(targetTime, targetPosX, targe
     thrustProfiles = [thrustProfiles moveRight(15, 3, m, dt)];
     thrustProfiles = [thrustProfiles rotateCCW(90, 1, I, L, dt)];
     thrustProfiles = [thrustProfiles moveRight(10, 3, m, dt)];
+    %}
+
+    % hard-coded path in shape of R
+    %{
+    thrustProfiles = [thrustProfiles moveRight(10, 3, m, dt)];
+    thrustProfiles = [thrustProfiles rotateCCW(90, 1, I, L, dt)];
+    thrustProfiles = [thrustProfiles moveRight(30, 3, m, dt)];
+    thrustProfiles = [thrustProfiles rotateCW(90, 1, I, L, dt)];
+    thrustProfiles = [thrustProfiles moveRight(5, 1, m, dt)];
+    thrustProfiles = [thrustProfiles rotateCW(30, 1, I, L, dt)];
+    thrustProfiles = [thrustProfiles moveRight(5, 1, m, dt)];
+    thrustProfiles = [thrustProfiles rotateCW(30, 1, I, L, dt)];
+    thrustProfiles = [thrustProfiles moveRight(5, 1, m, dt)];
+    thrustProfiles = [thrustProfiles rotateCW(30, 1, I, L, dt)];
+    thrustProfiles = [thrustProfiles moveRight(5, 1, m, dt)];
+    %}
+
+    thrustProfiles = fromPath(targetPosX, targetPosY, astrobee, dt);
+
 
     timeSpan = dt:dt:dt*length(thrustProfiles(1,:));
 
@@ -156,3 +176,74 @@ function thrustProfiles = rotateCW(degrees, totalTime, I, L, dt)
 
 end
 
+
+function tp = fromPath(targetPosX, targetPosY, astrobee, dt)
+    numSamples = ceil(length(targetPosX)/50);
+    mask = 1:numSamples:length(targetPosX);
+    X = targetPosX(mask);
+    Y = targetPosY(mask);
+    I = astrobee.I_zz;
+    L = astrobee.L;
+    m = astrobee.m;
+    tp = [];
+    DX = X(2:end) - X(1:end-1);
+    DY = Y(2:end) - Y(1:end-1);
+    distance = sqrt( DX.^2 + DY.^2 );
+    deg = [];
+    for i = 1:length(DX)
+        dx = DX(i);
+        dy = DY(i);
+
+        angle = []; % absolute angle
+
+        if dx == 0
+            if dy == 0
+                angle = 0;
+            elseif dy > 0
+                angle = 90;
+            else
+                angle = 270;
+            end
+        elseif dy == 0
+            if dx == 0
+                angle = 0;
+            elseif dx > 0
+                angle = 0;
+            else dx < 0
+                angle = 180
+            end
+        elseif dx > 0
+            if dy > 0
+                % Q1
+                angle = atand(dy/dx);
+            else
+                % Q4
+                angle = 360 + atand(dy/dx);
+            end
+        else
+            % Q3 and Q4
+            angle = 180 + atand(dy/dx);
+        end
+
+        deg = [deg angle];
+    end
+
+    for i = length(deg)-1:-1:1
+        d2 = deg(i+1);
+        d1 = deg(i);
+        if d2 - d1 == 0;
+            deg = [deg(1:i) deg(i+2:end)];
+            distance(i) = distance(i) + distance(i+1);
+            distance = [distance(1:i) distance(i+2:end)];
+        end
+    end
+
+    % Generate script to move
+    prev_angle = astrobee.omega0;
+    for i = 1:length(distance)
+        d_angle = deg(i) - prev_angle;
+        tp = [tp rotateCCW(d_angle, 1, I, L, dt) moveRight(distance(i), 3, m, dt)];
+        prev_angle = deg(i);
+    end
+
+end
