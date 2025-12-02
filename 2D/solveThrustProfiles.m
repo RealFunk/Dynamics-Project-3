@@ -41,7 +41,7 @@ function thrustProfileStruct = solveThrustProfiles(targetTime, targetPosX, targe
     thrustProfiles = [thrustProfiles moveRight(5, 1, m, dt)];
     %}
 
-    thrustProfiles = fromPath(targetPosX, targetPosY, astrobee, dt);
+    thrustProfiles = fromPath(targetTime, targetPosX, targetPosY, astrobee, dt);
 
 
     timeSpan = dt:dt:dt*length(thrustProfiles(1,:));
@@ -177,17 +177,19 @@ function thrustProfiles = rotateCW(degrees, totalTime, I, L, dt)
 end
 
 
-function tp = fromPath(targetPosX, targetPosY, astrobee, dt)
+function tp = fromPath(targetTime, targetPosX, targetPosY, astrobee, dt)
     numSamples = ceil(length(targetPosX)/50);
     mask = 1:numSamples:length(targetPosX);
     X = targetPosX(mask);
     Y = targetPosY(mask);
+    T = targetTime(mask);
     I = astrobee.I_zz;
     L = astrobee.L;
     m = astrobee.m;
     tp = [];
     DX = X(2:end) - X(1:end-1);
     DY = Y(2:end) - Y(1:end-1);
+    DT = T(2:end) - T(1:end-1);
     distance = sqrt( DX.^2 + DY.^2 );
     deg = [];
     for i = 1:length(DX)
@@ -242,7 +244,14 @@ function tp = fromPath(targetPosX, targetPosY, astrobee, dt)
     prev_angle = astrobee.omega0;
     for i = 1:length(distance)
         d_angle = deg(i) - prev_angle;
-        tp = [tp rotateCCW(d_angle, 1, I, L, dt) moveRight(distance(i), 3, m, dt)];
+        allotedTime = DT(i);
+        rotateTime = 0.25 * allotedTime;
+        moveTime = 0.75 * allotedTime;
+        if d_angle <= 180
+            tp = [tp rotateCCW(d_angle, rotateTime, I, L, dt) moveRight(distance(i), moveTime, m, dt)];
+        else
+            tp = [tp rotateCW(360 - d_angle, rotateTime, I, L, dt) moveRight(distance(i), moveTime, m, dt)];
+        end
         prev_angle = deg(i);
     end
 

@@ -1,25 +1,6 @@
 function renderAnimation(time, targetTime, targetPosX, targetPosY, posX, posY, theta, thrustProfiles, astrobee)
-
+    
     %{
-    plot(time, 180*theta/pi, 'b')
-    xlabel('time (s)')
-    ylabel('angle (deg)')
-    title('Angle over time')
-    grid on
-    %}
-
-    %{
-    hold on
-    plot(posX, posY, 'r');
-    plot(targetPosX, targetPosY, 'b')
-    xlabel('X distance (m)')
-    ylabel('Y distance (m)')
-    title('Trajectory')
-    grid on
-    axis equal
-    hold off
-    %}
-
     fig = figure(1)
     set(fig, 'Position', [0,0,1200,500])
     fps = 20;
@@ -59,5 +40,6 @@ function renderAnimation(time, targetTime, targetPosX, targetPosY, posX, posY, t
         writeVideo(video, frame);
     end
     close(video);
+    %}
 
 end
